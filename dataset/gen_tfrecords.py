@@ -45,15 +45,16 @@ def generate():
 
 
     train_writers = []
+    '''
     for ii in range(FLAGS.num_files):
         train_writers.append(None if FLAGS.debug else \
                 tf.python_io.TFRecordWriter(FLAGS.output_dir + "train_data%d.tfrecord" % ii))
-    
+    '''
     val_writer = None if FLAGS.debug else \
             tf.python_io.TFRecordWriter(FLAGS.output_dir + "validation_data.tfrecord")
 
     nclasses = 2
-    for split, writer in [('train', train_writers), ('val', val_writer)]:
+    for split, writer in [('val', val_writer)]:
         # Load dataset
         dataset = coco.CocoDataset()
         dataset.load_coco(FLAGS.coco_root, split)
@@ -73,13 +74,6 @@ def generate():
         sample_count = 1
         for image_id in dataset.image_ids:
             print("Working on sample %d" % image_id)
-            if split=='val':
-                cl_live = cv2.resize(
-                    cv2.imread("CampusLoopDataset/live/Image%s.jpg" % (str(count).zfill(3))),
-                    (vw, vh), interpolation=cv2.INTER_CUBIC) 
-                cl_mem = cv2.resize(
-                    cv2.imread("CampusLoopDataset/memory/Image%s.jpg" % (str(count).zfill(3))),
-                    (vw, vh), interpolation=cv2.INTER_CUBIC) 
 
             image = cv2.resize(dataset.load_image(image_id),
                 (vw, vh), interpolation=cv2.INTER_CUBIC)
@@ -90,14 +84,14 @@ def generate():
                 cls = coco_classes.get(class_ids[i])
                 if cls=='car':
                     car_cnt+=1
-                    mask_label[:, :, 1] = np.logical_or(mask_label[:,:,1], 
-                            cv2.resize(masks[:, :, i].astype(np.uint8), (vw, vh), 
-                            interpolation=cv2.INTER_NEAREST).astype(np.bool))
+                    # Just overwrite because we just want anns with one car
+                    mask_label[:, :, 1] = cv2.resize(masks[:, :, i].astype(np.uint8), (vw, vh), 
+                            interpolation=cv2.INTER_NEAREST).astype(np.bool)
 
             print("Car count:", car_cnt)
             # No labels for BG. Make them!
-            mask_label[:, :, 0] = np.logical_not(mask_label[:, :, 1])
             if car_cnt == 1: 
+                mask_label[:, :, 0] = np.logical_not(mask_label[:, :, 1])
                 if FLAGS.debug:
                     mask = np.argmax(mask_label, axis=-1)
                     rgb = np.zeros((vh, vw, 3))
@@ -137,7 +131,7 @@ def generate():
                         'img': bytes_feature(tf.compat.as_bytes(image.tostring())),
                         'label': bytes_feature(tf.compat.as_bytes(mask_label.astype(np.uint8).tostring()))
                     }
-
+                    example = tf.train.Example(features=tf.train.Features(feature=features_))
 
                     if split=='val':
                         writer.write(example.SerializeToString())
