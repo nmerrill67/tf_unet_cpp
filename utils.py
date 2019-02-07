@@ -21,7 +21,6 @@ from unet import vh, vw, unet
 
 import time
 import traceback
-import layers
 import cv2
 
 gtdata = None
@@ -41,7 +40,7 @@ def display_trainable_parameters():
 
     print("\n\nTrainable Parameters: %d\n\n" % total_parameters)
 
-def mask_helper(pred, mask, title):
+def mask_helper(im, pred, mask, title):
     h, w = pred.shape[:2]
     rgb1 = np.zeros((h, w, 3))
     rgb2 = np.zeros((h, w, 3))
@@ -69,7 +68,7 @@ def mask_helper(pred, mask, title):
     global preddata
     global gtdata
 
-    if imdata is None:
+    if gtdata is None:
         plt.subplot(1,2,1)
         gtdata = plt.imshow(image1)
         f = plt.gca()
@@ -158,7 +157,7 @@ class TrainingHook(tf.train.SessionRunHook):
             pred = run_values.results["pred"] 
             mask = run_values.results["label"] 
 
-            mask_helper(pred, mask, "Train")
+            mask_helper(im, pred, mask, "Train")
             tp = (step,
                   self.steps,
                   time.strftime("%a %d %H:%M:%S", time.localtime(time.time() + eta_time)),
@@ -214,7 +213,7 @@ class EvalHook(tf.train.SessionRunHook):
             pred = run_values.results["pred"] 
             mask = run_values.results["label"] 
 
-            mask_helper(pred, mask, "Test")
+            mask_helper(im, pred, mask, "Test")
             tp = (run_values.results["loss"])
 
             print('Test Error = %f' % tp)        
@@ -351,7 +350,7 @@ def train_and_eval(model_dir,
 
     eval_spec = tf.estimator.EvalSpec(
       input_fn=input_fn(split="validation", batch_size=batch_size),
-      steps=100 // (batch_size // 3),
+      steps=32,
       start_delay_secs=eval_start_delay_secs,
       throttle_secs=eval_throttle_secs)
 

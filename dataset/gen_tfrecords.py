@@ -10,8 +10,8 @@ import cv2
 import tensorflow as tf
 from time import time
 
-from coco_classes import coco_classes, unet_classes
-import coco
+from .coco_classes import coco_classes, unet_classes
+from . import coco
 
 vw = 640
 vh = 480
@@ -45,16 +45,14 @@ def generate():
 
 
     train_writers = []
-    '''
     for ii in range(FLAGS.num_files):
         train_writers.append(None if FLAGS.debug else \
                 tf.python_io.TFRecordWriter(FLAGS.output_dir + "train_data%d.tfrecord" % ii))
-    '''
     val_writer = None if FLAGS.debug else \
             tf.python_io.TFRecordWriter(FLAGS.output_dir + "validation_data.tfrecord")
 
     nclasses = 2
-    for split, writer in [('val', val_writer)]:
+    for split, writer in [('train', train_writers), ('val', val_writer)]:
         # Load dataset
         dataset = coco.CocoDataset()
         dataset.load_coco(FLAGS.coco_root, split)

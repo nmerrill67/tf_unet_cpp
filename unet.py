@@ -11,7 +11,6 @@ import numpy as np
 from time import time
 
 import utils
-import layers
 N_CLASSES = 2
 
 from dataset.gen_tfrecords import vw as __vw
@@ -25,7 +24,6 @@ if __name__ == '__main__':
     tf.app.flags.DEFINE_string("mode", "train", "train or pr")
 
     tf.app.flags.DEFINE_string("model_dir", "model", "Estimator model_dir")
-    tf.app.flags.DEFINE_string("data_dir", "dataset/CampusLoopDataset", "Path to data")
     tf.app.flags.DEFINE_string("title", "Precision-Recall Curve", "Plot title")
     tf.app.flags.DEFINE_integer("n_include", 1, "")
 
@@ -36,8 +34,8 @@ if __name__ == '__main__':
         "is used to override hyperparameter settings when manually "
         "selecting hyperparameters.")
 
-    tf.app.flags.DEFINE_integer("batch_size", 12, "Size of mini-batch.")
-    tf.app.flags.DEFINE_string("input_dir", "/mnt/f3be6b3c-80bb-492a-98bf-4d0d674a51d6/coco/calc_tfrecords/", "tfrecords dir")
+    tf.app.flags.DEFINE_integer("batch_size", 2, "Size of mini-batch.")
+    tf.app.flags.DEFINE_string("input_dir", "/mnt/f3be6b3c-80bb-492a-98bf-4d0d674a51d6/coco/unet_tfrecords/", "tfrecords dir")
 
 def create_input_fn(split, batch_size):
     """Returns input_fn for tf.estimator.Estimator.
@@ -68,16 +66,11 @@ def create_input_fn(split, batch_size):
             features_['img'] = tf.FixedLenFeature([], tf.string)
             features_['label'] = tf.FixedLenFeature([], tf.string)
 
-            if split!='train':
-                features_['cl_live'] = tf.FixedLenFeature([], tf.string)
-                features_['cl_mem'] = tf.FixedLenFeature([], tf.string)
-
             fs = tf.parse_single_example(
                 serialized_example,
                 features=features_
             )
             
-
             fs['img'] = tf.reshape(tf.cast(tf.decode_raw(fs['img'], tf.uint8),
                 tf.float32) / 255.0, [__vh,__vw,3])
             fs['label'] = tf.reshape(tf.cast(tf.decode_raw(fs['label'], tf.uint8),
@@ -97,8 +90,7 @@ def create_input_fn(split, batch_size):
             files = [indir + tfrecord]
             
         dataset = tf.data.TFRecordDataset(files)
-        if split=='train':
-            dataset = dataset.apply(tf.data.experimental.shuffle_and_repeat(400, seed=np.int64(time())))
+        dataset = dataset.apply(tf.data.experimental.shuffle_and_repeat(400, seed=np.int64(time())))
         dataset = dataset.apply(tf.data.experimental.map_and_batch(parser, batch_size,
                     num_parallel_calls=2))
         dataset = dataset.prefetch(buffer_size=2)
@@ -121,7 +113,7 @@ def unet(images, is_training=False):
 
     # Variational Semantic Segmentator
     with tf.variable_scope("UNet"): 
-        images = tf.identinty(images, name='images')
+        images = tf.identity(images, name='images')
         with slim.arg_scope(
             [slim.conv2d],
             normalizer_fn=slim.batch_norm,
@@ -176,6 +168,7 @@ def unet(images, is_training=False):
             normalizer_fn=None,
             activation_fn=None,
             padding='SAME')
+        
         return prob_feat
 
 def model_fn(features, labels, mode, hparams):
@@ -214,7 +207,8 @@ def model_fn(features, labels, mode, hparams):
           "loss": loss,
           "eval_metric_ops": eval_ops,
           'pred': pred,
-          'im': _im
+          'im': _im,
+          'label': mask
     }
 
     predictions = {
