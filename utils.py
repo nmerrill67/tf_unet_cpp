@@ -17,45 +17,17 @@ from tensorflow.python.client import device_lib
 from matplotlib import pyplot as plt
 from matplotlib.patches import Patch
 
-from calc2 import vh, vw, vss
+from unet import vh, vw, unet
 
 import time
 import traceback
 import layers
 import cv2
-from dataset.coco_classes import calc_classes, calc_class_names
 
 gtdata = None
 preddata = None
-imdata = None
-recdata = None
 
-
-N_CLASSES = len(calc_classes.keys())
-
-class CALC2(object):
-    def __init__(self, model_dir, sess):
-        self.sess = sess
-        self.images = tf.placeholder(tf.float32, [None, vh, vw, 3])    
-        self.descriptor = vss(self.images, False, True)
-        
-        saver = tf.train.Saver()
-        ckpt = tf.train.get_checkpoint_state(model_dir)
-
-        print("loading model: ", ckpt.model_checkpoint_path)
-        saver.restore(self.sess, ckpt.model_checkpoint_path)
-
-    def run(self, images):
-        
-        if len(images.shape)==2:
-            # Grayscale
-            images = np.repeat(images[..., np.newaxis], 3, axis=-1)
-        if len(images.shape)==3:
-            images = images[np.newaxis, ...]
-
-        descr = self.sess.run(self.descriptor, 
-                    feed_dict={self.images: images})
-        return descr
+N_CLASSES = 2
 
 def display_trainable_parameters():
     total_parameters = 0
@@ -69,7 +41,7 @@ def display_trainable_parameters():
 
     print("\n\nTrainable Parameters: %d\n\n" % total_parameters)
 
-def mask_helper(im, pred, rec, mask, title):
+def mask_helper(pred, mask, title):
     h, w = pred.shape[:2]
     rgb1 = np.zeros((h, w, 3))
     rgb2 = np.zeros((h, w, 3))
@@ -84,7 +56,7 @@ def mask_helper(im, pred, rec, mask, title):
         case2 = pred==i
         if np.any(np.logical_or(case1, case2)):
             legend.append(Patch(facecolor=tuple(c), edgecolor=tuple(c),
-                        label=calc_class_names[i]))
+                        label='background' if i==0 else 'car'))
 
         rgb1[case1, :] = c
         rgb2[case2, :] = c
@@ -94,39 +66,23 @@ def mask_helper(im, pred, rec, mask, title):
     image1 = 0.3 * im + 0.7 * rgb1
     image2 = 0.3 * im + 0.7 * rgb2
 
-    global imdata
     global preddata
-    global recdata
     global gtdata
 
     if imdata is None:
-        plt.subplot(2,2,1)
-        imdata = plt.imshow(im)
-        f = plt.gca()
-        f.axes.get_xaxis().set_ticks([])
-        f.axes.get_yaxis().set_ticks([])
-
-        plt.subplot(2,2,2)
-        recdata = plt.imshow(rec)
-        f = plt.gca()
-        f.axes.get_xaxis().set_ticks([])
-        f.axes.get_yaxis().set_ticks([])
-
-        plt.subplot(2,2,3)
+        plt.subplot(1,2,1)
         gtdata = plt.imshow(image1)
         f = plt.gca()
         f.axes.get_xaxis().set_ticks([])
         f.axes.get_yaxis().set_ticks([])
 
-        plt.subplot(2,2,4)
+        plt.subplot(1,2,2)
         preddata = plt.imshow(image2)
         f = plt.gca()
         f.axes.get_xaxis().set_ticks([])
         f.axes.get_yaxis().set_ticks([])
 
     else:
-        imdata.set_data(im)
-        recdata.set_data(rec)
         gtdata.set_data(image1)
         preddata.set_data(image2)
 
@@ -171,12 +127,8 @@ class TrainingHook(tf.train.SessionRunHook):
         graph = tf.get_default_graph()
         runargs = {
             "loss": graph.get_collection("total_loss")[0],
-            "segloss": graph.get_collection("segloss")[0],
-            "recloss": graph.get_collection("recloss")[0],
-            "kld": graph.get_collection("kld")[0],
             "im": graph.get_collection("im")[0],
             "pred": graph.get_collection("pred")[0],
-            "rec": graph.get_collection("rec")[0],
             "label": graph.get_collection("label")[0],
         }
 
@@ -204,20 +156,16 @@ class TrainingHook(tf.train.SessionRunHook):
 
             im = run_values.results["im"] / 255.0
             pred = run_values.results["pred"] 
-            rec = run_values.results["rec"] 
             mask = run_values.results["label"] 
 
-            mask_helper(im, pred, rec, mask, "Train")
+            mask_helper(pred, mask, "Train")
             tp = (step,
                   self.steps,
                   time.strftime("%a %d %H:%M:%S", time.localtime(time.time() + eta_time)),
                   eta,
-                  run_values.results["loss"], 
-                  run_values.results["segloss"],
-                  run_values.results["recloss"],
-                  run_values.results["kld"])
+                  run_values.results["loss"])
 
-            print('\n(%d/%d): ETA: %s (%s)\n Train loss = %f, Seg = %f, Rec = %f, KLD = %f' % tp)        
+            print('\n(%d/%d): ETA: %s (%s)\n Train loss = %f' % tp)        
 
         self.last_time = now
 
@@ -250,12 +198,8 @@ class EvalHook(tf.train.SessionRunHook):
         graph = tf.get_default_graph()
         runargs = {
             "loss": graph.get_collection("total_loss")[0],
-            "segloss": graph.get_collection("segloss")[0],
-            "recloss": graph.get_collection("recloss")[0],
-            "kld": graph.get_collection("kld")[0],
             "im": graph.get_collection("im")[0],
             "pred": graph.get_collection("pred")[0],
-            "rec": graph.get_collection("rec")[0],
             "label": graph.get_collection("label")[0],
         }
         return tf.train.SessionRunArgs(runargs)
@@ -268,16 +212,12 @@ class EvalHook(tf.train.SessionRunHook):
             
             im = run_values.results["im"] / 255.0
             pred = run_values.results["pred"] 
-            rec = run_values.results["rec"] 
             mask = run_values.results["label"] 
 
-            mask_helper(im, pred, rec, mask, "Test")
-            tp = (run_values.results["loss"], 
-                  run_values.results["segloss"],
-                  run_values.results["recloss"],
-                  run_values.results["kld"])
+            mask_helper(pred, mask, "Test")
+            tp = (run_values.results["loss"])
 
-            print('Test Error = %f, Seg = %f, Rec = %f, KLD = %f' % tp)        
+            print('Test Error = %f' % tp)        
             fl = self.savedir + "/segmentation_iteration_%d.png" % step
             plt.savefig(fl, bbox_inches='tight', dpi=100)          
 
@@ -306,12 +246,8 @@ def standard_model_fn(func, steps, run_config,
 
         ret = func(features, labels, mode, params)
         tf.add_to_collection("total_loss", ret["loss"])
-        tf.add_to_collection("segloss", ret["segloss"])
-        tf.add_to_collection("recloss", ret["recloss"])
-        tf.add_to_collection("kld", ret["kld"])
         tf.add_to_collection("im", ret["im"])
         tf.add_to_collection("pred", ret["pred"])
-        tf.add_to_collection("rec", ret["rec"])
         tf.add_to_collection("label", ret["label"])
         
         train_op = None
