@@ -13,11 +13,11 @@ from time import time
 import utils
 N_CLASSES = 2
 
-from dataset.gen_tfrecords import vw as __vw
-from dataset.gen_tfrecords import vh as __vh
+from gen_tfrecords import vw as __vw
+from gen_tfrecords import vh as __vh
 
-vw = 640
-vh = 480 
+vw = 320
+vh = 240 
 
 FLAGS = tf.app.flags.FLAGS
 if __name__ == '__main__':
