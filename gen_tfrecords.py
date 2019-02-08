@@ -21,7 +21,7 @@ if __name__ == '__main__':
     #tf.app.flags.DEFINE_string("cityscapes_root", "/mnt/f3be6b3c-80bb-492a-98bf-4d0d674a51d6/cityscapes/", "")
     tf.app.flags.DEFINE_string("cityscapes_root", "/home/nate/data/cityscapes", "")
     tf.app.flags.DEFINE_integer("num_files", 7, "Num files to write for train dataset. More files=better randomness")
-    tf.app.flags.DEFINE_boolean("debug", True, "")
+    tf.app.flags.DEFINE_boolean("debug", False, "")
     
 
     if FLAGS.debug:
@@ -84,53 +84,56 @@ def generate():
 
         mask_label = np.zeros((vh, vw, 2), dtype=np.bool)
         mask_label[:, :, 1:2] = lab==car_id
-        mask_label[:, :, 0] = np.logical_not(mask_label[:, :, 1])
-        if FLAGS.debug:
-            mask = np.argmax(mask_label, axis=-1)
-            rgb = np.zeros((vh, vw, 3))
+        if np.any(mask_label[:,:,1]):
+            mask_label[:, :, 0] = np.logical_not(mask_label[:, :, 1])
+            if FLAGS.debug:
+                mask = np.argmax(mask_label, axis=-1)
+                rgb = np.zeros((vh, vw, 3))
 
-            legend = []
-            np.random.seed(0)
-            for i in range(2):
-                c = np.random.rand(3)
-                case = mask==i
-                if np.any(case):
-                    legend.append(Patch(facecolor=tuple(c), edgecolor=tuple(c),
-                                label='background' if i==0 else 'car'))
+                legend = []
+                np.random.seed(0)
+                for i in range(2):
+                    c = np.random.rand(3)
+                    case = mask==i
+                    if np.any(case):
+                        legend.append(Patch(facecolor=tuple(c), edgecolor=tuple(c),
+                                    label='background' if i==0 else 'car'))
 
-                rgb[case, :] = c
-            
-            _image = cv2.resize(image, (vw, vh)) / 255.0
+                    rgb[case, :] = c
+                
+                _image = cv2.resize(image, (vw, vh)) / 255.0
 
-            _image = 0.3 * _image + 0.7 * rgb
+                _image = 0.3 * _image + 0.7 * rgb
 
-            global imdata
-            if imdata is None:
-                imdata = plt.imshow(_image)
-                f = plt.gca()
-                f.axes.get_xaxis().set_ticks([])
-                f.axes.get_yaxis().set_ticks([])
+                global imdata
+                if imdata is None:
+                    imdata = plt.imshow(_image)
+                    f = plt.gca()
+                    f.axes.get_xaxis().set_ticks([])
+                    f.axes.get_yaxis().set_ticks([])
+                else:
+                    imdata.set_data(_image)
+
+                lgd = plt.legend(handles=legend, loc='upper left', bbox_to_anchor=(1.0, 1))
+                
+                plt.pause(1e-9)
+                plt.draw()
+                plt.pause(3)
+
             else:
-                imdata.set_data(_image)
+                features_ = {
+                    'img': bytes_feature(tf.compat.as_bytes(image.tostring())),
+                    'label': bytes_feature(tf.compat.as_bytes(mask_label.astype(np.uint8).tostring()))
+                }
+                example = tf.train.Example(features=tf.train.Features(feature=features_))
 
-            lgd = plt.legend(handles=legend, loc='upper left', bbox_to_anchor=(1.0, 1))
-            
-            plt.pause(1e-9)
-            plt.draw()
-            plt.pause(3)
-
+                if split=='val':
+                    writer.write(example.SerializeToString())
+                else:
+                    writer[np.random.randint(0,FLAGS.num_files)].write(example.SerializeToString())
+            count += 1
         else:
-            features_ = {
-                'img': bytes_feature(tf.compat.as_bytes(image.tostring())),
-                'label': bytes_feature(tf.compat.as_bytes(mask_label.astype(np.uint8).tostring()))
-            }
-            example = tf.train.Example(features=tf.train.Features(feature=features_))
-
-            if split=='val':
-                writer.write(example.SerializeToString())
-            else:
-                writer[np.random.randint(0,FLAGS.num_files)].write(example.SerializeToString())
-        count += 1
+            print("No cars. Skipping")
     print("Done. Sample count =", count)
 def main(argv):
     del argv
