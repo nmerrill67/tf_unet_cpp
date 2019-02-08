@@ -6,3 +6,4 @@ model*
 *.txt
 CampusLoopDataset
 tfrecords
+frozen_graphs

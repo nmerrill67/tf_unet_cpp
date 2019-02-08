@@ -28,6 +28,31 @@ preddata = None
 
 N_CLASSES = 2
 
+class UNet(object):
+    def __init__(self, model_dir, sess):
+        self.sess = sess
+        self.images = tf.placeholder(tf.float32, [None, vh, vw, 3])    
+        self.pred = tf.argmax(tf.nn.softmax(unet(self.images, False)), axis=-1)
+        
+        saver = tf.train.Saver()
+        ckpt = tf.train.get_checkpoint_state(model_dir)
+
+        print("loading model: ", ckpt.model_checkpoint_path)
+        saver.restore(self.sess, ckpt.model_checkpoint_path)
+
+    def run(self, images):
+        
+        if len(images.shape)==2:
+            # Grayscale
+            images = np.repeat(images[..., np.newaxis], 3, axis=-1)
+        if len(images.shape)==3:
+            images = images[np.newaxis, ...]
+
+        mask = self.sess.run(self.pred, 
+                    feed_dict={self.images: images})
+        return mask
+
+
 def display_trainable_parameters():
     total_parameters = 0
     for variable in tf.trainable_variables():
@@ -292,10 +317,10 @@ def train_and_eval(model_dir,
     input_fn,
     hparams,
     log_steps=32,
-    save_steps=1024,
-    summary_steps=1024,
+    save_steps=32,
+    summary_steps=32,
     eval_start_delay_secs=600,
-    eval_throttle_secs=30):
+    eval_throttle_secs=0):
     """Trains and evaluates our model. Supports local and distributed training.
 
     Args:

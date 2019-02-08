@@ -21,11 +21,11 @@ vh = 240
 
 FLAGS = tf.app.flags.FLAGS
 if __name__ == '__main__':
-    tf.app.flags.DEFINE_string("mode", "train", "train or pr")
+    tf.app.flags.DEFINE_string("mode", "train", "train or predict")
 
     tf.app.flags.DEFINE_string("model_dir", "model", "Estimator model_dir")
 
-    tf.app.flags.DEFINE_integer("steps", 1000000, "Training steps")
+    tf.app.flags.DEFINE_integer("steps", 50000, "Training steps")
     tf.app.flags.DEFINE_string(
         "hparams", "",
         "A comma-separated list of `name=value` hyperparameter values. This flag "
@@ -34,6 +34,7 @@ if __name__ == '__main__':
 
     tf.app.flags.DEFINE_integer("batch_size", 12, "Size of mini-batch.")
     tf.app.flags.DEFINE_string("input_dir", "tfrecords/", "tfrecords dir")
+    tf.app.flags.DEFINE_string("image", "", "Image to predict on")
 
 def create_input_fn(split, batch_size):
     """Returns input_fn for tf.estimator.Estimator.
@@ -240,15 +241,31 @@ def main(argv):
     tf.logging.set_verbosity(tf.logging.ERROR)
 
     hparams = _default_hparams()
-
-    utils.train_and_eval(
-        model_dir=FLAGS.model_dir,
-        model_fn=model_fn,
-        input_fn=create_input_fn,
-        hparams=hparams,
-        steps=FLAGS.steps,
-        batch_size=FLAGS.batch_size,
-   )
+    
+    if FLAGS.mode == 'train':
+        utils.train_and_eval(
+            model_dir=FLAGS.model_dir,
+            model_fn=model_fn,
+            input_fn=create_input_fn,
+            hparams=hparams,
+            steps=FLAGS.steps,
+            batch_size=FLAGS.batch_size,
+       )
+    elif FLAGS.mode == 'predict':
+        import cv2
+        from matplotlib import pyplot as plt
+        from gen_tfrecords import central_crop
+        with tf.Session() as sess:
+            unet = utils.UNet(FLAGS.model_dir, sess)
+            im = central_crop(cv2.imread(FLAGS.image), vw, vh) / 255.0
+            t = time()
+            mask = unet.run(im)
+            print("Inference took %f ms" % (1000*(time()-t)))
+            image = .3 * im + .7 * np.squeeze(mask)[...,np.newaxis]
+            plt.imshow(image)
+            plt.show()
+    else:
+        raise ValueError("Unknown mode: %s" % FLAGS.mode)
 
 if __name__ == "__main__":
     sys.excepthook = utils.colored_hook(
