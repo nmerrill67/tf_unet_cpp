@@ -127,7 +127,7 @@ def generate():
                 }
                 example = tf.train.Example(features=tf.train.Features(feature=features_))
 
-                'val' in im_fl:
+                if 'val' in im_fl:
                     writer.write(example.SerializeToString())
                 else:
                     writer[np.random.randint(0,FLAGS.num_files)].write(example.SerializeToString())
