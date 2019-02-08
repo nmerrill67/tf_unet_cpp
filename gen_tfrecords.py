@@ -68,12 +68,14 @@ def generate():
 
     car_id = 26
 
-    im_list, lab_list = writeFileList(FLAGS.data_root)
+    im_list, lab_list = writeFileList(FLAGS.cityscapes_root)
 
     count = 1
     for i in range(len(im_list)):
         im_fl = im_list[i]
         lab_fl = lab_list[i]
+
+        print(im_fl, lab_fl)
 
         print("Working on sample %d" % i)
 
