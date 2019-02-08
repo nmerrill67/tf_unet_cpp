@@ -24,18 +24,16 @@ if __name__ == '__main__':
     tf.app.flags.DEFINE_string("mode", "train", "train or pr")
 
     tf.app.flags.DEFINE_string("model_dir", "model", "Estimator model_dir")
-    tf.app.flags.DEFINE_string("title", "Precision-Recall Curve", "Plot title")
-    tf.app.flags.DEFINE_integer("n_include", 1, "")
 
-    tf.app.flags.DEFINE_integer("steps", 2000000, "Training steps")
+    tf.app.flags.DEFINE_integer("steps", 1000000, "Training steps")
     tf.app.flags.DEFINE_string(
         "hparams", "",
         "A comma-separated list of `name=value` hyperparameter values. This flag "
         "is used to override hyperparameter settings when manually "
         "selecting hyperparameters.")
 
-    tf.app.flags.DEFINE_integer("batch_size", 2, "Size of mini-batch.")
-    tf.app.flags.DEFINE_string("input_dir", "/mnt/f3be6b3c-80bb-492a-98bf-4d0d674a51d6/coco/unet_tfrecords/", "tfrecords dir")
+    tf.app.flags.DEFINE_integer("batch_size", 12, "Size of mini-batch.")
+    tf.app.flags.DEFINE_string("input_dir", "tfrecords/", "tfrecords dir")
 
 def create_input_fn(split, batch_size):
     """Returns input_fn for tf.estimator.Estimator.
@@ -190,8 +188,8 @@ def model_fn(features, labels, mode, hparams):
                     labels=labels))
 
     prob = tf.nn.softmax(prob_feat[0])
-    pred = tf.argmax(prob, axis=-1)
-    mask = tf.argmax(labels[0], axis=-1)
+    _pred = tf.argmax(prob, axis=-1)
+    _mask = tf.argmax(labels[0], axis=-1)
 
     def touint8(img):
         return tf.cast(img * 255.0, tf.uint8)
@@ -202,17 +200,21 @@ def model_fn(features, labels, mode, hparams):
     eval_ops = {
               "Test Error": tf.metrics.mean(loss),
     }
-
+    
+    pred = tf.nn.softmax(prob_feat, name='pred')
+    mask = tf.argmax(pred, axis=-1, name='mask')
+    
     to_return = {
           "loss": loss,
           "eval_metric_ops": eval_ops,
-          'pred': pred,
+          'pred': _pred,
           'im': _im,
-          'label': mask
+          'label': _mask
     }
 
     predictions = {
-        'pred': tf.nn.softmax(prob_feat),
+        'pred': pred,
+        'mask': mask,
     }
     
     to_return['predictions'] = predictions

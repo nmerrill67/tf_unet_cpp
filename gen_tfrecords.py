@@ -128,9 +128,9 @@ def generate():
                 example = tf.train.Example(features=tf.train.Features(feature=features_))
 
                 if 'val' in im_fl:
-                    writer.write(example.SerializeToString())
+                    val_writer.write(example.SerializeToString())
                 else:
-                    writer[np.random.randint(0,FLAGS.num_files)].write(example.SerializeToString())
+                    train_writers[np.random.randint(0,FLAGS.num_files)].write(example.SerializeToString())
             count += 1
         else:
             print("No cars. Skipping")
