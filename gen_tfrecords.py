@@ -18,8 +18,8 @@ FLAGS = tf.app.flags.FLAGS
 if __name__ == '__main__':
    
     tf.app.flags.DEFINE_string("output_dir", "tfrecords/", "")
-    #tf.app.flags.DEFINE_string("cityscapes_root", "/mnt/f3be6b3c-80bb-492a-98bf-4d0d674a51d6/cityscapes/", "")
-    tf.app.flags.DEFINE_string("cityscapes_root", "/home/nate/data/cityscapes", "")
+    tf.app.flags.DEFINE_string("cityscapes_root", "/mnt/f3be6b3c-80bb-492a-98bf-4d0d674a51d6/cityscapes/", "")
+    #tf.app.flags.DEFINE_string("cityscapes_root", "/home/nate/data/cityscapes", "")
     tf.app.flags.DEFINE_integer("num_files", 7, "Num files to write for train dataset. More files=better randomness")
     tf.app.flags.DEFINE_boolean("debug", False, "")
     
@@ -127,7 +127,7 @@ def generate():
                 }
                 example = tf.train.Example(features=tf.train.Features(feature=features_))
 
-                if split=='val':
+                'val' in im_fl:
                     writer.write(example.SerializeToString())
                 else:
                     writer[np.random.randint(0,FLAGS.num_files)].write(example.SerializeToString())
