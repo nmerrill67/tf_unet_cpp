@@ -9,7 +9,6 @@ import numpy as np
 import cv2
 import tensorflow as tf
 from time import time
-from glob import glob
 
 vw = 320
 vh = 240
@@ -19,7 +18,8 @@ FLAGS = tf.app.flags.FLAGS
 if __name__ == '__main__':
    
     tf.app.flags.DEFINE_string("output_dir", "tfrecords/", "")
-    tf.app.flags.DEFINE_string("cityscapes_root", "/mnt/f3be6b3c-80bb-492a-98bf-4d0d674a51d6/cityscapes/", "")
+    #tf.app.flags.DEFINE_string("cityscapes_root", "/mnt/f3be6b3c-80bb-492a-98bf-4d0d674a51d6/cityscapes/", "")
+    tf.app.flags.DEFINE_string("cityscapes_root", "/home/nate/data/cityscapes", "")
     tf.app.flags.DEFINE_integer("num_files", 7, "Num files to write for train dataset. More files=better randomness")
     tf.app.flags.DEFINE_boolean("debug", True, "")
     
@@ -36,11 +36,12 @@ def writeFileList(dirName):
     for dirname, dirnames, filenames in os.walk(os.path.join(dirName, 'gtFine')):
         for filename in filenames:
             if filename.endswith('.png'):	
-                fileName = glob(os.path.join(dirname, filename)) 
-                lab_list += fileName
-                bn = filename[6:-19]
-                im_list += "leftImg8bit" + bn + "leftImg8bit.png"
-
+                fileName = os.path.join(dirname, filename)
+                lab_list.append(fileName)
+                bnl = fileName.split('gtFine')
+                im_list.append(bnl[0] + "leftImg8bit" + \
+                        bnl[1] + "leftImg8bit.png")
+                
     return im_list, lab_list
 
 
@@ -53,7 +54,7 @@ def int64_feature(value):
 def central_crop(x, w, h):
     i = x.shape[0] // 2
     j = x.shape[1] // 2
-    return x[(i-h//2):(i+h//2+1), (j-w//2):(j+w//2+1), :]
+    return x[(i-h//2):(i+h//2), (j-w//2):(j+w//2), :]
 
 def generate():
     if not os.path.isdir(FLAGS.output_dir):
@@ -75,16 +76,14 @@ def generate():
         im_fl = im_list[i]
         lab_fl = lab_list[i]
 
-        print(im_fl, lab_fl)
-
         print("Working on sample %d" % i)
 
         image = central_crop(cv2.imread(im_fl), vw, vh)
         lab = central_crop(cv2.imread(lab_fl, 
-            cv2.IMREAD_GRAYSCALE), vw, vh)
+            cv2.IMREAD_GRAYSCALE)[..., np.newaxis], vw, vh)
 
         mask_label = np.zeros((vh, vw, 2), dtype=np.bool)
-        mask_label[:, :, 1] = lab==car_id
+        mask_label[:, :, 1:2] = lab==car_id
         mask_label[:, :, 0] = np.logical_not(mask_label[:, :, 1])
         if FLAGS.debug:
             mask = np.argmax(mask_label, axis=-1)
@@ -92,7 +91,7 @@ def generate():
 
             legend = []
             np.random.seed(0)
-            for i in range(nclasses):
+            for i in range(2):
                 c = np.random.rand(3)
                 case = mask==i
                 if np.any(case):
