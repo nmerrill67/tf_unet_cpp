@@ -57,7 +57,9 @@ def freeze_graph(model_dir, output_node_names):
     # We retrieve our checkpoint fullpath
     checkpoint = tf.train.get_checkpoint_state(model_dir)
     input_checkpoint = checkpoint.model_checkpoint_path
-    
+ 
+    print("\n\nLoading checkpoint: %s\n\n" % input_checkpoint)
+
     # We precise the file fullname of our freezed graph
     absolute_model_dir = "/".join(input_checkpoint.split('/')[:-1])
     if not os.path.isdir('frozen_graphs'):

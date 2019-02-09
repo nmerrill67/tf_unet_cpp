@@ -152,7 +152,17 @@ void UNet::run(const cv::Mat& _im, cv::Mat& out)
     // Avoid double free with opencv and tf.
     float* data = (float*)malloc(h*w*c*sizeof(float));
     memcpy(data, im.data, h*w*c*sizeof(float));
-
+    /*
+    for (int k = 0; k < c; k++)
+    {
+        for (int i = 0; i < h; i++)
+        {
+            for (int j = 0; j < w; j++)
+                printf("%.3f ", data[k*w*h + i*w + j]);
+            printf("\n");
+        }
+    }
+    */
     input = TF_NewTensor(
         TF_FLOAT, dims,
         4, data, h*w*c*sizeof(float),
@@ -181,20 +191,25 @@ void UNet::run(const cv::Mat& _im, cv::Mat& out)
         return;
     }
     
-    float* ret_data = (float*)TF_TensorData(output);
+    if (!output)
+    { 
+        fprintf(stderr, "Failed to create output tensor!\n");
+        return;
+    }
+    
+    int64_t* ret_data = (int64_t*)TF_TensorData(output);
    
     uint8_t* ret_data_uint8 = (uint8_t*)malloc(w*h*sizeof(uint8_t));
     for (int i = 0; i < w*h; i++)
         ret_data_uint8[i] = (uint8_t)ret_data[i];
     
-    /*
     for (int i = 0; i < h; i++)
     {
         for (int j = 0; j < w; j++)
-            printf("%.3f ", ret_data[i*w + j]);
+            printf("%d ", ret_data[i*w + j]);
         printf("\n");
     }
-    */
+
     out = cv::Mat(sz, CV_8UC1, ret_data_uint8);
 }
 
