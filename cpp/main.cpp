@@ -12,7 +12,7 @@ int main(int argc, char* argv[])
         return -1;
     }
     
-    cv::Mat im = cv::imread(argv[1], CV_LOAD_IMAGE_COLOR);
+    cv::Mat im = cv::imread(argv[1]);
     if (!im.data)
     {
         printf("Could not open image file: %s\n", argv[1]);
@@ -27,7 +27,7 @@ int main(int argc, char* argv[])
     unet.run(im, mask);
     printf("Inference took %f ms\n", 1000 * (double)(clock()-t0) / CLOCKS_PER_SEC);
 
-    cv::namedWindow("Display window", WINDOW_AUTOSIZE );
+    cv::namedWindow("Display window", cv::WINDOW_AUTOSIZE );
     cv::imshow("Display window", mask);              
 
     cv::waitKey(0);                                          

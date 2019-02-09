@@ -1,7 +1,32 @@
 #include <unistd.h>
 #include "unet.h"
+#include "opencv2/imgproc.hpp"
 
+void dealloc(void* data, size_t len, void* arg)
+{
+    free(data);
+}
 
+void free_buffer(void* data, size_t len)
+{
+    free(data);
+}
+
+TF_Buffer* read_tf_buffer(const char* file) {                                                  
+    FILE *f = fopen(file, "rb");
+    fseek(f, 0, SEEK_END);
+    long fsize = ftell(f);                                                                  
+    fseek(f, 0, SEEK_SET);  //same as rewind(f);                                            
+    void* data = malloc(fsize);                                                             
+    fread(data, fsize, 1, f);
+    fclose(f);
+
+    TF_Buffer* buf = TF_NewBuffer();                                                        
+    buf->data = data;
+    buf->length = fsize;                                                                    
+    buf->data_deallocator = free_buffer;                                                    
+    return buf;
+} 
 
 UNet::UNet() : w(160), h(120), c(3)
 {
@@ -10,7 +35,6 @@ UNet::UNet() : w(160), h(120), c(3)
     if (access("unet.pb", F_OK ) == -1)
     {
         fprintf(stderr, "unet.pb does not exist. Please freeze a graph for inference.\n");
-        return -1;
     }
     
     graph = TF_NewGraph();
@@ -38,10 +62,9 @@ UNet::UNet() : w(160), h(120), c(3)
     printf("\nStarted session. Status: %s\n\n", code ? msg : "SUCCESS");
     
     in_op = {TF_GraphOperationByName(graph, 
-            "UNet/images", 0};
+            "UNet/images"), 0};
     if (!in_op.oper) {
-        fprintf(stderr, "Can't init in_op. Exiting.");
-        return 0;
+        fprintf(stderr, "Can't init in_op.");
     } else {
         printf("Successfully initialized in_op\n");
     }
@@ -50,8 +73,7 @@ UNet::UNet() : w(160), h(120), c(3)
            "mask"), 0};
 
     if (!out_op.oper) {
-        fprintf(stderr, "Can't init out_op. Exiting.");
-        return 0;
+        fprintf(stderr, "Can't init out_op.");
     } else {
         printf("Successfully initialized out_op\n");
     }
@@ -74,12 +96,6 @@ UNet::~UNet()
         TF_DeleteStatus(status);
     printf("Successfully closed session and session data\n");
 
-}
-
-
-void dealloc(void* data, size_t len, void* arg)
-{
-    free(data);
 }
 
 void UNet::run(const cv::Mat& _im, cv::Mat& out)
