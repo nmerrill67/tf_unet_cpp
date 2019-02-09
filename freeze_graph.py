@@ -35,41 +35,6 @@ except ImportError:
 # from tensorflow.python.tools.freeze_graph import freeze_graph 
 
 dir = os.path.dirname(os.path.realpath(__file__))
-'''
-def freeze_graph(model_dir, output_node_names):
-    sess = tf.Session()
-    
-    checkpoint = tf.train.get_checkpoint_state(model_dir)
-    input_checkpoint = checkpoint.model_checkpoint_path
-    
-    # We precise the file fullname of our freezed graph
-    absolute_model_dir = "/".join(input_checkpoint.split('/')[:-1])
-    if not os.path.isdir('frozen_graphs'):
-        os.mkdir('frozen_graphs')
-
-    # import best model
-    saver = tf.train.import_meta_graph(input_checkpoint + '.meta') # graph
-    saver.restore(sess, input_checkpoint) # variables
-
-    # get graph definition
-    gd = sess.graph.as_graph_def()
-
-    # fix batch norm nodes
-    for node in gd.node:
-        if node.op == 'RefSwitch':
-            node.op = 'Switch'
-            for index in xrange(len(node.input)):
-                if 'moving_' in node.input[index]:
-                    node.input[index] = node.input[index] + '/read'
-        elif node.op == 'AssignSub':
-            node.op = 'Sub'
-            if 'use_locking' in node.attr: del node.attr['use_locking']
-
-    # generate protobuf
-    converted_graph_def = graph_util.convert_variables_to_constants(sess, gd, output_node_names.split(','))
-    tf.train.write_graph(converted_graph_def, 'frozen_graphs', 'unet_frozen.pb', as_text=False)
-
-'''
 
 def freeze_graph(model_dir, output_node_names):
     """Extract the sub graph defined by the output nodes and convert 
@@ -143,7 +108,7 @@ def optimize_for_inference():
 
     input_graph_def = graph_pb2.GraphDef()
     inpt = "frozen_graphs/unet_frozen.pb"
-    output = "frozen_graphs/unet.pb"
+    output = "cpp/unet.pb"
     with gfile.Open(inpt, "rb") as f:
         data = f.read()
         #if FLAGS.frozen_graph:
@@ -152,7 +117,7 @@ def optimize_for_inference():
         #    text_format.Merge(data.decode("utf-8"), input_graph_def)
     
     input_names = ["UNet/images"]
-    output_names = ["mask"]
+    output_names = ["UNet/mask"]
 
     output_graph_def = optimize_for_inference_lib.optimize_for_inference(
       input_graph_def,
@@ -168,7 +133,7 @@ if __name__ == '__main__':
     parser.add_argument("--model_dir", type=str, default="model", help="Model folder to export")
     args = parser.parse_args()
 
-    freeze_graph(args.model_dir, "mask")
+    freeze_graph(args.model_dir, "UNet/mask")
     print("Graph frozen successfully, optimizing for inference...")
     optimize_for_inference()
     print("Optimized successfully, done.")

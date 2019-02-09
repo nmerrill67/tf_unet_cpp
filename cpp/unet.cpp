@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include "unet.h"
+#include <time.h>
 
 void dealloc(void* data, size_t len, void* arg)
 {
@@ -27,7 +28,7 @@ TF_Buffer* read_tf_buffer(const char* file) {
     return buf;
 } 
 
-UNet::UNet() : w(160), h(120), c(3), dims{1, h, w, c}
+UNet::UNet() : w(320), h(240), c(3), dims{1, h, w, c}
 {
     printf("Found TensorFlow version %s\n", TF_Version());
 
@@ -69,7 +70,7 @@ UNet::UNet() : w(160), h(120), c(3), dims{1, h, w, c}
     }
 
     out_op = {TF_GraphOperationByName(graph, 
-           "mask"), 0};
+           "UNet/mask"), 0};
 
     if (!out_op.oper) {
         fprintf(stderr, "Can't init out_op.");
@@ -162,7 +163,6 @@ void UNet::run(const cv::Mat& _im, cv::Mat& out)
         fprintf(stderr, "Failed to create input tensor\n");
         return;
     }
-
 
     TF_SessionRun(sess,
                   NULL, // Run options.

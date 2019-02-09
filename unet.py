@@ -16,8 +16,8 @@ N_CLASSES = 2
 from gen_tfrecords import vw as __vw
 from gen_tfrecords import vh as __vh
 
-vw = 320 // 2
-vh = 240 // 2
+vw = 320
+vh = 240
 
 FLAGS = tf.app.flags.FLAGS
 if __name__ == '__main__':
@@ -101,15 +101,6 @@ def create_input_fn(split, batch_size):
 
 def unet(images, is_training=False):
     
-    bn = {
-        'decay': 0.9997,
-        'epsilon': 1e-5,
-        'scale': True,
-        'is_training': is_training,
-        'fused': True,  # Use fused batch norm if possible.
-    }
-
-
     # Variational Semantic Segmentator
     with tf.variable_scope("UNet"): 
         images = tf.identity(images, name='images')
@@ -135,7 +126,6 @@ def unet(images, is_training=False):
 
             d41 = slim.conv2d(p3, 512, [3,3])
             d42 = slim.conv2d(d41, 512, [3,3])
-            '''
             p4 = tf.layers.max_pooling2d(d42, [2,2], 2, padding='same')
             
             d51 = slim.conv2d(p4, 1024, [3,3])
@@ -143,32 +133,31 @@ def unet(images, is_training=False):
 
             ### Decoder ####################################
             
-            hw = tf.shape(d42)[1:3]
-            u41 = slim.conv2d(tf.image.resize_images(d52, hw), 512, [3,3])
+            u41 = slim.conv2d(tf.depth_to_space(d52, 2), 512, [3,3])
             u42 = slim.conv2d(tf.concat([u41, d42], axis=-1), 512, [3,3])
             u43 = slim.conv2d(u42, 512, [3,3])
-            '''
-            hw = tf.shape(d32)[1:3]
-            u31 = slim.conv2d(tf.image.resize_images(d42, hw), 256, [3,3])
-            u32 = slim.conv2d(tf.concat([u31, d32], axis=-1), 256, [3,3])
-            u33 = slim.conv2d(u32, 256, [3,3])
+            
+            u31 = slim.conv2d(tf.depth_to_space(u43, 2), 128, [3,3])
+            u32 = slim.conv2d(tf.concat([u31, d32], axis=-1), 128, [3,3])
+            u33 = slim.conv2d(u32, 128, [3,3])
 
-            hw = tf.shape(d22)[1:3]
-            u21 = slim.conv2d(tf.image.resize_images(u33, hw), 128, [3,3])
-            u22 = slim.conv2d(tf.concat([u21, d22], axis=-1), 128, [3,3])
-            u23 = slim.conv2d(u22, 128, [3,3])
+            u21 = slim.conv2d(tf.depth_to_space(u33, 2), 64, [3,3])
+            u22 = slim.conv2d(tf.concat([u21, d22], axis=-1), 64, [3,3])
+            u23 = slim.conv2d(u22, 64, [3,3])
 
-            hw = tf.shape(d12)[1:3]
-            u11 = slim.conv2d(tf.image.resize_images(u23, hw), 64, [3,3])
-            u12 = slim.conv2d(tf.concat([u11, d12], axis=-1), 64, [3,3])
-            u13 = slim.conv2d(u12, 64, [3,3])
+            u11 = slim.conv2d(tf.depth_to_space(u23, 2), 32, [3,3])
+            u12 = slim.conv2d(tf.concat([u11, d12], axis=-1), 32, [3,3])
+            u13 = slim.conv2d(u12, 32, [3,3])
 
-        prob_feat = slim.conv2d(u13, 2, [1,1],
-            normalizer_fn=None,
-            activation_fn=None,
-            padding='SAME')
-        
-        return prob_feat
+            prob_feat = slim.conv2d(u13, 2, [1,1],
+                normalizer_fn=None,
+                activation_fn=None,
+                padding='SAME')
+            
+            pred = tf.nn.softmax(prob_feat, name='pred')
+            mask = tf.argmax(pred, axis=-1, name='mask')
+            
+            return prob_feat, mask
 
 def model_fn(features, labels, mode, hparams):
    
@@ -184,17 +173,11 @@ def model_fn(features, labels, mode, hparams):
    
     images = features['img']
     labels = features['label']
-    prob_feat = unet(images, is_training)
+    prob_feat, mask = unet(images, is_training)
     loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=prob_feat,
                     labels=labels))
 
-    prob = tf.nn.softmax(prob_feat[0])
-    _pred = tf.argmax(prob, axis=-1)
-    _mask = tf.argmax(labels[0], axis=-1)
 
-    def touint8(img):
-        return tf.cast(img * 255.0, tf.uint8)
-    _im = touint8(images[0])
     with tf.variable_scope("stats"):
         tf.summary.scalar("loss", loss)
 
@@ -202,19 +185,19 @@ def model_fn(features, labels, mode, hparams):
               "Test Error": tf.metrics.mean(loss),
     }
     
-    pred = tf.nn.softmax(prob_feat, name='pred')
-    mask = tf.argmax(pred, axis=-1, name='mask')
+    def touint8(img):
+        return tf.cast(img * 255.0, tf.uint8)
+    im = touint8(images[0])
     
     to_return = {
           "loss": loss,
           "eval_metric_ops": eval_ops,
-          'pred': _pred,
-          'im': _im,
-          'label': _mask
+          'pred': mask[0],
+          'im': im,
+          'label': tf.argmax(labels[0], axis=-1)
     }
 
     predictions = {
-        'pred': pred,
         'mask': mask,
     }
     
