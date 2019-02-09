@@ -10,6 +10,7 @@ import sys
 from google.protobuf import text_format
 
 import tensorflow as tf
+from tensorflow.python.framework import graph_util
 from tensorflow.core.framework import graph_pb2
 from tensorflow.python.framework import dtypes
 from tensorflow.python.framework import graph_io
@@ -34,6 +35,41 @@ except ImportError:
 # from tensorflow.python.tools.freeze_graph import freeze_graph 
 
 dir = os.path.dirname(os.path.realpath(__file__))
+'''
+def freeze_graph(model_dir, output_node_names):
+    sess = tf.Session()
+    
+    checkpoint = tf.train.get_checkpoint_state(model_dir)
+    input_checkpoint = checkpoint.model_checkpoint_path
+    
+    # We precise the file fullname of our freezed graph
+    absolute_model_dir = "/".join(input_checkpoint.split('/')[:-1])
+    if not os.path.isdir('frozen_graphs'):
+        os.mkdir('frozen_graphs')
+
+    # import best model
+    saver = tf.train.import_meta_graph(input_checkpoint + '.meta') # graph
+    saver.restore(sess, input_checkpoint) # variables
+
+    # get graph definition
+    gd = sess.graph.as_graph_def()
+
+    # fix batch norm nodes
+    for node in gd.node:
+        if node.op == 'RefSwitch':
+            node.op = 'Switch'
+            for index in xrange(len(node.input)):
+                if 'moving_' in node.input[index]:
+                    node.input[index] = node.input[index] + '/read'
+        elif node.op == 'AssignSub':
+            node.op = 'Sub'
+            if 'use_locking' in node.attr: del node.attr['use_locking']
+
+    # generate protobuf
+    converted_graph_def = graph_util.convert_variables_to_constants(sess, gd, output_node_names.split(','))
+    tf.train.write_graph(converted_graph_def, 'frozen_graphs', 'unet_frozen.pb', as_text=False)
+
+'''
 
 def freeze_graph(model_dir, output_node_names):
     """Extract the sub graph defined by the output nodes and convert 
@@ -73,11 +109,26 @@ def freeze_graph(model_dir, output_node_names):
 
         # We restore the weights
         saver.restore(sess, input_checkpoint)
+        
+        gd = tf.get_default_graph().as_graph_def()
+
+        """
+        # fix batch norm nodes
+        for node in gd.node:
+            if node.op == 'RefSwitch':
+                node.op = 'Switch'
+                for index in xrange(len(node.input)):
+                    if 'moving_' in node.input[index]:
+                        node.input[index] = node.input[index] + '/read'
+            elif node.op == 'AssignSub':
+                node.op = 'Sub'
+                if 'use_locking' in node.attr: del node.attr['use_locking']
+        """
 
         # We use a built-in TF helper to export variables to constants
         output_graph_def = tf.graph_util.convert_variables_to_constants(
             sess, # The session is used to retrieve the weights
-            tf.get_default_graph().as_graph_def(), # The graph_def is used to retrieve the nodes 
+            gd, # The graph_def is used to retrieve the nodes 
             output_node_names.split(",") # The output node names are used to select the usefull nodes
         ) 
 
@@ -87,7 +138,6 @@ def freeze_graph(model_dir, output_node_names):
         print("%d ops in the final graph." % len(output_graph_def.node))
 
     return output_graph_def
-
 
 def optimize_for_inference():
 

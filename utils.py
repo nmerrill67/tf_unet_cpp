@@ -51,8 +51,36 @@ class UNet(object):
         mask = self.sess.run(self.pred, 
                     feed_dict={self.images: images})
         return mask
+'''
+class UNet(object):
+    def __init__(self):
+        
+        with tf.gfile.GFile("frozen_graphs/unet.pb", "rb") as f:
+            graph_def = tf.GraphDef()
+            graph_def.ParseFromString(f.read())
 
+        with tf.Graph().as_default() as graph:
+            tf.import_graph_def(graph_def, name="")
 
+        self.images = graph.get_tensor_by_name("UNet/images:0")
+        self.pred = graph.get_tensor_by_name("mask:0")        
+        self.sess = tf.Session(graph=graph)
+
+    def __del__(self):
+        self.sess.close()
+
+    def run(self, images):
+        
+        if len(images.shape)==2:
+            # Grayscale
+            images = np.repeat(images[..., np.newaxis], 3, axis=-1)
+        if len(images.shape)==3:
+            images = images[np.newaxis, ...]
+
+        mask = self.sess.run(self.pred, 
+                    feed_dict={self.images: images})
+        return mask
+'''
 def display_trainable_parameters():
     total_parameters = 0
     for variable in tf.trainable_variables():

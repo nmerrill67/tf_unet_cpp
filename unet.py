@@ -16,8 +16,8 @@ N_CLASSES = 2
 from gen_tfrecords import vw as __vw
 from gen_tfrecords import vh as __vh
 
-vw = 320
-vh = 240 
+vw = 320 // 2
+vh = 240 // 2
 
 FLAGS = tf.app.flags.FLAGS
 if __name__ == '__main__':
@@ -25,7 +25,7 @@ if __name__ == '__main__':
 
     tf.app.flags.DEFINE_string("model_dir", "model", "Estimator model_dir")
 
-    tf.app.flags.DEFINE_integer("steps", 50000, "Training steps")
+    tf.app.flags.DEFINE_integer("steps", 10000, "Training steps")
     tf.app.flags.DEFINE_string(
         "hparams", "",
         "A comma-separated list of `name=value` hyperparameter values. This flag "
@@ -115,9 +115,8 @@ def unet(images, is_training=False):
         images = tf.identity(images, name='images')
         with slim.arg_scope(
             [slim.conv2d],
-            normalizer_fn=slim.batch_norm,
-            activation_fn=lambda x: tf.nn.elu(x),
-            normalizer_params=bn,
+            normalizer_fn=None,
+            activation_fn=lambda x: tf.nn.relu(x),
             padding='SAME'):
             
             ### Encoder ####################################
@@ -136,6 +135,7 @@ def unet(images, is_training=False):
 
             d41 = slim.conv2d(p3, 512, [3,3])
             d42 = slim.conv2d(d41, 512, [3,3])
+            '''
             p4 = tf.layers.max_pooling2d(d42, [2,2], 2, padding='same')
             
             d51 = slim.conv2d(p4, 1024, [3,3])
@@ -147,9 +147,9 @@ def unet(images, is_training=False):
             u41 = slim.conv2d(tf.image.resize_images(d52, hw), 512, [3,3])
             u42 = slim.conv2d(tf.concat([u41, d42], axis=-1), 512, [3,3])
             u43 = slim.conv2d(u42, 512, [3,3])
-
+            '''
             hw = tf.shape(d32)[1:3]
-            u31 = slim.conv2d(tf.image.resize_images(u43, hw), 256, [3,3])
+            u31 = slim.conv2d(tf.image.resize_images(d42, hw), 256, [3,3])
             u32 = slim.conv2d(tf.concat([u31, d32], axis=-1), 256, [3,3])
             u33 = slim.conv2d(u32, 256, [3,3])
 
