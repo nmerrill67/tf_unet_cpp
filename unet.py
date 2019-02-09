@@ -25,14 +25,14 @@ if __name__ == '__main__':
 
     tf.app.flags.DEFINE_string("model_dir", "model", "Estimator model_dir")
 
-    tf.app.flags.DEFINE_integer("steps", 10000, "Training steps")
+    tf.app.flags.DEFINE_integer("steps", 30000, "Training steps")
     tf.app.flags.DEFINE_string(
         "hparams", "",
         "A comma-separated list of `name=value` hyperparameter values. This flag "
         "is used to override hyperparameter settings when manually "
         "selecting hyperparameters.")
 
-    tf.app.flags.DEFINE_integer("batch_size", 12, "Size of mini-batch.")
+    tf.app.flags.DEFINE_integer("batch_size", 24, "Size of mini-batch.")
     tf.app.flags.DEFINE_string("input_dir", "tfrecords/", "tfrecords dir")
     tf.app.flags.DEFINE_string("image", "", "Image to predict on")
 

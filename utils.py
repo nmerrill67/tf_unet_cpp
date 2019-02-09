@@ -317,8 +317,8 @@ def train_and_eval(model_dir,
     input_fn,
     hparams,
     log_steps=32,
-    save_steps=32,
-    summary_steps=32,
+    save_steps=128,
+    summary_steps=128,
     eval_start_delay_secs=600,
     eval_throttle_secs=0):
     """Trains and evaluates our model. Supports local and distributed training.
