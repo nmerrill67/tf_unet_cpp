@@ -10,8 +10,8 @@ import cv2
 import tensorflow as tf
 from time import time
 
-vw = 320
-vh = 240
+vw = 640
+vh = 480
 
 FLAGS = tf.app.flags.FLAGS
 

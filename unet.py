@@ -25,7 +25,7 @@ if __name__ == '__main__':
 
     tf.app.flags.DEFINE_string("model_dir", "model", "Estimator model_dir")
 
-    tf.app.flags.DEFINE_integer("steps", 2000, "Training steps")
+    tf.app.flags.DEFINE_integer("steps", 10000, "Training steps")
     tf.app.flags.DEFINE_string(
         "hparams", "",
         "A comma-separated list of `name=value` hyperparameter values. This flag "
@@ -79,7 +79,6 @@ def create_input_fn(split, batch_size):
                 fs['img'] = tf.image.resize_images(fs['img'], [vh, vw])
                 fs['label'] = tf.image.resize_images(fs['label'], [vh, vw],
                         method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
-
             return fs
 
         if split=='train':
@@ -168,6 +167,9 @@ def model_fn(features, labels, mode, hparams):
     if is_training:
         im_l = tf.concat([features['img'], features['label']], axis=-1)
         x = tf.image.random_flip_left_right(im_l)
+        #angles = tf.random.normal([FLAGS.batch_size], stddev=0.01)
+        #x = tf.contrib.image.rotate(x, angles)
+        #x = tf.image.random_crop(x, [FLAGS.batch_size, vh, vw, 5])
         features['img'] = x[:,:,:,:3]
         features['label'] = x[:,:,:,3:]
    
@@ -176,8 +178,7 @@ def model_fn(features, labels, mode, hparams):
     prob_feat, mask = unet(images, is_training)
     loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=prob_feat,
                     labels=labels))
-
-
+    
     with tf.variable_scope("stats"):
         tf.summary.scalar("loss", loss)
 

@@ -130,7 +130,7 @@ UNet::~UNet()
 
 }
 
-void UNet::run(const cv::Mat& _im, cv::Mat& out)
+cv::Rect UNet::run(const cv::Mat& _im, cv::Mat& out)
 {   
     if (input)
     {
@@ -146,7 +146,6 @@ void UNet::run(const cv::Mat& _im, cv::Mat& out)
     cv::Size sz(w, h);
     cv::Mat im;
     cv::resize(_im, im, sz);
-    cv::cvtColor(im, im, cv::COLOR_BGR2RGB);
     im.convertTo(im, CV_32F);
     im /= 255.0;
 
@@ -172,7 +171,7 @@ void UNet::run(const cv::Mat& _im, cv::Mat& out)
     if (!input)
     { 
         fprintf(stderr, "Failed to create input tensor\n");
-        return;
+        return cv::Rect(0,0,0,0);
     }
 
     TF_SessionRun(sess,
@@ -189,13 +188,13 @@ void UNet::run(const cv::Mat& _im, cv::Mat& out)
     {
         const char* msg = TF_Message(status);
         fprintf(stderr, "\nSession run error! Status: %s\n\n", msg);
-        return;
+        return cv::Rect(0,0,0,0);
     }
     
     if (!output)
     { 
         fprintf(stderr, "Failed to create output tensor!\n");
-        return;
+        return cv::Rect(0,0,0,0);
     }
     
     int64_t* ret_data = (int64_t*)TF_TensorData(output);
@@ -213,6 +212,9 @@ void UNet::run(const cv::Mat& _im, cv::Mat& out)
     */
 
     out = cv::Mat(sz, CV_8UC1, ret_data_uint8);
+    cv::Mat p;
+    cv::findNonZero(out, p);
+    return cv::boundingRect(p);
 }
 
 

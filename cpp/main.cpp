@@ -26,15 +26,20 @@ int main(int argc, char* argv[])
             printf("Could not open image file: %s\n", argv[i]);
             return -1;
         }
-
+        if (im.rows > 480 && im.cols > 640)
+        {
+            cv::Rect roi(im.cols/2-320, im.rows/2-240, 640, 480);
+            im = im(roi);
+        }
         t0 = clock();
-        unet.run(im, mask);
+        cv::Rect bbox = unet.run(im, mask);
         printf("Inference took %f ms\n", 1000 * (double)(clock()-t0) / CLOCKS_PER_SEC);
         
         cv::namedWindow("Display window", cv::WINDOW_AUTOSIZE );
 
         cv::Mat im2;
         cv::resize(im, im, cv::Size(320, 240));
+        cv::rectangle(im, bbox, 0, 2);
         cv::cvtColor(im, im, cv::COLOR_BGR2GRAY);
         cv::hconcat(im, 255 * mask, im2);
         cv::imshow("Display window", im2);              

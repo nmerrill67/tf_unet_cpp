@@ -13,7 +13,7 @@ class UNet
 public:
     UNet();
     ~UNet();
-    void run(const cv::Mat& im, cv::Mat& out);
+    cv::Rect run(const cv::Mat& im, cv::Mat& out);
 
     TF_Graph* graph;
     TF_Status* status;
