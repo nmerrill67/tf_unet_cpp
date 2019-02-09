@@ -146,6 +146,14 @@ void UNet::run(const cv::Mat& _im, cv::Mat& out)
     uint8_t* ret_data_uint8 = (uint8_t*)malloc(w*h*sizeof(uint8_t));
     for (int i = 0; i < w*h; i++)
         ret_data_uint8[i] = (uint8_t)ret_data[i];
+    
+    for (int i = 0; i < h; i++)
+    {
+        for (int j = 0; j < w; j++)
+            printf("%1.0f ", ret_data[i*w + j]);
+        printf("\n");
+    }
+
 
     out = cv::Mat(sz, CV_8UC1, ret_data_uint8);
 }

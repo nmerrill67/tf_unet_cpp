@@ -8,3 +8,4 @@ CampusLoopDataset
 tfrecords
 frozen_graphs
 *.pb
+main
