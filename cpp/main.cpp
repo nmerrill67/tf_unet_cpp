@@ -36,7 +36,7 @@ int main(int argc, char* argv[])
         cv::Mat im2;
         cv::resize(im, im, cv::Size(320, 240));
         cv::cvtColor(im, im, cv::COLOR_BGR2GRAY);
-        cv::hconcat(im, mask, im2);
+        cv::hconcat(im, 255 * mask, im2);
         cv::imshow("Display window", im2);              
 
         cv::waitKey(1000);                                          

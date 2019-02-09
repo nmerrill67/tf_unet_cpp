@@ -1,4 +1,5 @@
 #include <unistd.h>
+#include <algorithm>
 #include "unet.h"
 #include <time.h>
 
@@ -200,15 +201,16 @@ void UNet::run(const cv::Mat& _im, cv::Mat& out)
     int64_t* ret_data = (int64_t*)TF_TensorData(output);
    
     uint8_t* ret_data_uint8 = (uint8_t*)malloc(w*h*sizeof(uint8_t));
-    for (int i = 0; i < w*h; i++)
-        ret_data_uint8[i] = (uint8_t)ret_data[i];
+    std::copy(ret_data, ret_data + w*h, ret_data_uint8);
     
+    /*
     for (int i = 0; i < h; i++)
     {
         for (int j = 0; j < w; j++)
-            printf("%d ", ret_data[i*w + j]);
+            printf("%d ", ret_data_uint8[i*w + j]);
         printf("\n");
     }
+    */
 
     out = cv::Mat(sz, CV_8UC1, ret_data_uint8);
 }
