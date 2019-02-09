@@ -27,7 +27,7 @@ TF_Buffer* read_tf_buffer(const char* file) {
     return buf;
 } 
 
-UNet::UNet() : w(160), h(120), c(3), dims({1, h, w, c})
+UNet::UNet() : w(160), h(120), c(3), dims{1, h, w, c}
 {
     printf("Found TensorFlow version %s\n", TF_Version());
 
@@ -77,7 +77,9 @@ UNet::UNet() : w(160), h(120), c(3), dims({1, h, w, c})
         printf("Successfully initialized out_op\n");
     }
     
-    float* dummy_data = (float*)malloc(h*w*c*sizeof(float));
+    float* dummy_data;
+   
+    dummy_data = (float*)malloc(h*w*c*sizeof(float));
     memset(dummy_data, 0.0f, h*w*c*sizeof(float));
 
     input = TF_NewTensor(
@@ -146,17 +148,19 @@ void UNet::run(const cv::Mat& _im, cv::Mat& out)
     im.convertTo(im, CV_32F);
     im /= 255.0;
 
+    // Avoid double free with opencv and tf.
+    float* data = (float*)malloc(h*w*c*sizeof(float));
+    memcpy(data, im.data, h*w*c*sizeof(float));
+
     input = TF_NewTensor(
         TF_FLOAT, dims,
-        4, im.data, h*w*c*sizeof(float),
+        4, data, h*w*c*sizeof(float),
         &dealloc, NULL);
 
     if (!input)
     { 
         fprintf(stderr, "Failed to create input tensor\n");
         return;
-    } else {
-        printf("Successfully created input tensor\n");
     }
 
 
@@ -175,8 +179,6 @@ void UNet::run(const cv::Mat& _im, cv::Mat& out)
         const char* msg = TF_Message(status);
         fprintf(stderr, "\nSession run error! Status: %s\n\n", msg);
         return;
-    } else {
-        printf("Successfully ran session\n");
     }
     
     float* ret_data = (float*)TF_TensorData(output);
