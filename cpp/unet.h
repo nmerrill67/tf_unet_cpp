@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <tensorflow/c/c_api.h>
 #include "opencv2/core.hpp"
+#include "opencv2/imgproc.hpp"
     
 TF_Buffer* read_tf_buffer(const char* file);                                          
 void dealloc(void* data, size_t len, void* arg);
@@ -22,4 +23,5 @@ public:
     TF_Output in_op;
     TF_Output out_op;
     int w, h, c;
+    int64_t dims[4];
 };

@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 CPP := g++
-CFLAGS := -O3 -march=native -std=c++11 -fPIC -Wall
+CFLAGS := -O3 -march=native -std=c++11 -Wall
 LDFLAGS := -ltensorflow `pkg-config --libs --cflags opencv`
 
 all:

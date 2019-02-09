@@ -19,16 +19,24 @@ int main(int argc, char* argv[])
         return -1;
     }
 
+
+    clock_t t0 = clock();
     UNet unet;
+    printf("Initialized in %f ms\n", 1000 * (double)(clock()-t0) / CLOCKS_PER_SEC);
 
     cv::Mat mask;
 
-    clock_t t0 = clock();
+    t0 = clock();
     unet.run(im, mask);
     printf("Inference took %f ms\n", 1000 * (double)(clock()-t0) / CLOCKS_PER_SEC);
-
+    
     cv::namedWindow("Display window", cv::WINDOW_AUTOSIZE );
-    cv::imshow("Display window", mask);              
+
+    cv::Mat im2;
+    cv::resize(im, im, cv::Size(160, 120));
+    cv::cvtColor(im, im, cv::COLOR_BGR2GRAY);
+    cv::hconcat(im, mask, im2);
+    cv::imshow("Display window", im2);              
 
     cv::waitKey(0);                                          
 
