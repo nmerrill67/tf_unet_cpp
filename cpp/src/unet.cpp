@@ -109,6 +109,8 @@ UNet::UNet() : w(320), h(240), c(3), dims{1, h, w, c}
         TF_DeleteTensor(output);
         output = NULL;
     }
+
+    printf("Successfully ran warm-up\n");
 }
 
 
