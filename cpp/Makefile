@@ -2,7 +2,7 @@ SHELL := /bin/bash
 CPP := g++
 CFLAGS := -O3 -march=native -std=c++11 -Wall
 LDFLAGS := -ltensorflow `pkg-config --libs --cflags opencv`
-ROSFLAGS := `pkg-config --libs --cflags std_msgs` `pkg-config --libs --cflags rosbag`
+ROSFLAGS := `pkg-config --libs --cflags rosbag` `pkg-config --libs --cflags sensor_msgs` `pkg-config --libs --cflags cv_bridge`
 
 all:
 	$(CPP) src/main.cpp src/unet.cpp $(CFLAGS) $(LDFLAGS) -Isrc -o main
