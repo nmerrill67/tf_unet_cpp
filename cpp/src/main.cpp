@@ -44,7 +44,7 @@ int main(int argc, char* argv[])
         cv::hconcat(im, 255 * mask, im2);
         cv::imshow("Display window", im2);              
 
-        cv::waitKey(1000);                                          
+        cv::waitKey(10);                                          
     }
     return 0;
 }

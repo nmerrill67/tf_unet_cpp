@@ -9,3 +9,5 @@ tfrecords
 frozen_graphs
 *.pb
 main
+add_to_bag
+*.bag
