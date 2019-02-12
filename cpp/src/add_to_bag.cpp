@@ -45,12 +45,15 @@ int main(int argc, char* argv[])
     UNet unet;
     cv_bridge::CvImage out_msg;
     out_msg.encoding = sensor_msgs::image_encodings::TYPE_8UC1; 
-    int j = 0;
+    int j;
     for (int i = 0; i < 2; i++)
     {   
+        j = 0;
         printf("Working on cam%d\n", i);
         for (sensor_msgs::ImageConstPtr msg : i==0?cam0_msgs:cam1_msgs)
         {
+            printf("Processing message %d / %d (%.2f %%)\n", j, (int)cam0_msgs.size(), (double)j/cam0_msgs.size()*100);
+            j++;
             try {
                 cv_bridge::CvImageConstPtr image = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
                 im = image->image;
@@ -61,7 +64,7 @@ int main(int argc, char* argv[])
             }
             unet.run(im, mask);
             out_msg.header = msg->header; 
-            out_msg.image = mask;
+            out_msg.image = 255*mask;
             bag.write(i==0?"/cam0/image_mask":"/cam1/image_mask",
                     ros::Time(msg->header.stamp.sec, msg->header.stamp.nsec),
                     out_msg);

@@ -216,6 +216,8 @@ cv::Rect UNet::run(const cv::Mat& _im, cv::Mat& out)
     out = cv::Mat(sz, CV_8UC1, ret_data_uint8);
     cv::Mat p;
     cv::findNonZero(out, p);
+    cv::resize(out, out, _im.size());
+
     return cv::boundingRect(p);
 }
 
