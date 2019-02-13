@@ -166,23 +166,18 @@ def model_fn(features, labels, mode, hparams):
     x = utils.distort(x, tf.placeholder_with_default([-0.0247903, 0.05102395,
         -0.03482873, 0.00815826], [4]))
     features['img'] = x[:,:,:,:3]
-    features['label'] = x[:,:,:,3:]
+    features['label'] = tf.cast(x[:,:,:,3:], tf.bool)
 
     images = features['img']
     labels = features['label']
     prob_feat, mask = unet(images, is_training)
     #loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=prob_feat,
     #                labels=labels))
-    seg = tf.nn.softmax(prob_feat)
-    label_bool = tf.cast(labels, tf.bool)
-    _0 = tf.zeros_like(labels)
-    p = tf.where(label_bool, tf.log(tf.clip_by_value(seg, 1e-6, 1.0)), _0)
-    n = tf.where(label_bool, _0, tf.log(1.0 - tf.clip_by_value(seg, 0.0, 1.0-1e-6)))
+    seg = tf.clip_by_value(tf.nn.softmax(prob_feat), 1e-6, 1.0)
 
-    labels = tf.cast(label_bool, tf.float32)
+    labels = tf.cast(labels, tf.float32)
     loss = tf.reduce_mean(  
-         -tf.reduce_sum(labels * p + (1.0 - labels) * n,
-         axis=-1))
+         -tf.reduce_sum(labels * tf.log(seg), axis=-1))
     
     with tf.variable_scope("stats"):
         tf.summary.scalar("loss", loss)

@@ -76,21 +76,18 @@ def freeze_graph(model_dir, output_node_names):
 
         # We restore the weights
         saver.restore(sess, input_checkpoint)
-        
+        '''
+        mask = tf.expand_dims(tf.get_default_graph().get_tensor_by_name('UNet/mask:0'), -1)
+        k = tf.zeros([5,5,1], dtype=mask.dtype)
+        s = [1,1,1,1]
+        r = [1,3,3,1]
+        for i in range(1):
+            mask = tf.nn.erosion2d(mask, k, s, r, 'SAME')
+        for i in range(1):
+            mask = tf.nn.dilation2d(mask, k, s, r, 'SAME')
+        mask = tf.squeeze(mask, name='UNet/mask_f')
+        '''
         gd = tf.get_default_graph().as_graph_def()
-
-        """
-        # fix batch norm nodes
-        for node in gd.node:
-            if node.op == 'RefSwitch':
-                node.op = 'Switch'
-                for index in xrange(len(node.input)):
-                    if 'moving_' in node.input[index]:
-                        node.input[index] = node.input[index] + '/read'
-            elif node.op == 'AssignSub':
-                node.op = 'Sub'
-                if 'use_locking' in node.attr: del node.attr['use_locking']
-        """
 
         # We use a built-in TF helper to export variables to constants
         output_graph_def = tf.graph_util.convert_variables_to_constants(
