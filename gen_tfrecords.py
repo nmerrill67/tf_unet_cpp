@@ -10,8 +10,8 @@ import cv2
 import tensorflow as tf
 from time import time
 
-vw = 640
-vh = 480
+vh = 800
+vw = 2048
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -51,12 +51,13 @@ def bytes_feature(values):
 def int64_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
 
-def central_crop(x, w, h):
-    i = x.shape[0] // 2
+def upper_crop(x, w, h):
+    # remove the benz hood from the frame
     j = x.shape[1] // 2
-    return x[(i-h//2):(i+h//2), (j-w//2):(j+w//2), :]
+    return x[:h, (j-w//2):(j+w//2), :]
 
 def generate():
+   
     if not os.path.isdir(FLAGS.output_dir):
         os.mkdir(FLAGS.output_dir)
 
@@ -78,8 +79,8 @@ def generate():
 
         print("Working on sample %d" % i)
 
-        image = central_crop(cv2.imread(im_fl), vw, vh)
-        lab = central_crop(cv2.imread(lab_fl, 
+        image = upper_crop(cv2.imread(im_fl), vw, vh)
+        lab = upper_crop(cv2.imread(lab_fl, 
             cv2.IMREAD_GRAYSCALE)[..., np.newaxis], vw, vh)
 
         mask_label = np.zeros((vh, vw, 2), dtype=np.bool)

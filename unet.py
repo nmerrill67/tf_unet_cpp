@@ -11,13 +11,13 @@ import numpy as np
 from time import time
 
 import utils
-N_CLASSES = 2
 
 from gen_tfrecords import vw as __vw
 from gen_tfrecords import vh as __vh
 
-vw = 320
+N_CLASSES = 2
 vh = 240
+vw = 320
 
 FLAGS = tf.app.flags.FLAGS
 if __name__ == '__main__':
@@ -74,11 +74,12 @@ def create_input_fn(split, batch_size):
                 tf.float32) / 255.0, [__vh,__vw,3])
             fs['label'] = tf.reshape(tf.cast(tf.decode_raw(fs['label'], tf.uint8),
                 tf.float32), [__vh,__vw,N_CLASSES])
-            
+            '''           
             if __vh!=vh or __vw!=vw:
                 fs['img'] = tf.image.resize_images(fs['img'], [vh, vw])
                 fs['label'] = tf.image.resize_images(fs['label'], [vh, vw],
                         method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
+            '''
             return fs
 
         if split=='train':
@@ -167,9 +168,8 @@ def model_fn(features, labels, mode, hparams):
     if is_training:
         im_l = tf.concat([features['img'], features['label']], axis=-1)
         x = tf.image.random_flip_left_right(im_l)
-        #angles = tf.random.normal([FLAGS.batch_size], stddev=0.01)
-        #x = tf.contrib.image.rotate(x, angles)
-        #x = tf.image.random_crop(x, [FLAGS.batch_size, vh, vw, 5])
+        x = tf.image.random_crop(x, [FLAGS.batch_size, vh, vw, 5])
+        x = util.distort(x)
         features['img'] = x[:,:,:,:3]
         features['label'] = x[:,:,:,3:]
    

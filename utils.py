@@ -17,7 +17,7 @@ from tensorflow.python.client import device_lib
 from matplotlib import pyplot as plt
 from matplotlib.patches import Patch
 
-from unet import vh, vw, unet
+#from unet import vh, vw, unet
 
 import time
 import traceback
@@ -51,6 +51,136 @@ class UNet(object):
         mask = self.sess.run(self.pred, 
                     feed_dict={self.images: images})
         return mask
+
+
+def distort(images,
+        d=tf.placeholder_with_default([-0.0247903, 0.05102395,
+            -0.03482873, 0.00815826], [4]),
+        to_fisheye=True,
+        name='distort'):
+    def _repeat(x, n_repeats):
+        with tf.variable_scope('_repeat'):
+            rep = tf.transpose(
+                tf.expand_dims(tf.ones(shape=tf.stack([n_repeats, ])), 1), [1, 0])
+            rep = tf.cast(rep, 'int32')
+            x = tf.matmul(tf.reshape(x, (-1, 1)), rep)
+            return tf.reshape(x, [-1])
+
+    def _interpolate(im, x, y, out_size):
+        with tf.variable_scope('_interpolate'):
+            # constants
+            num_batch = tf.shape(im)[0]
+            height = tf.shape(im)[1]
+            width = tf.shape(im)[2]
+            channels = tf.shape(im)[3]
+
+            x = tf.cast(x, 'float32')
+            y = tf.cast(y, 'float32')
+            height_f = tf.cast(height, 'float32')
+            width_f = tf.cast(width, 'float32')
+            out_height = out_size[0]
+            out_width = out_size[1]
+            zero = tf.zeros([], dtype='int32')
+            max_y = tf.cast(tf.shape(im)[1] - 1, 'int32')
+            max_x = tf.cast(tf.shape(im)[2] - 1, 'int32')
+            
+            # scale indices from [-1, 1] to [0, width/height]
+            x = (x + 1.0)*(width_f) / 2.0
+            y = (y + 1.0)*(height_f) / 2.0
+            
+            # do sampling
+            x0 = tf.cast(tf.floor(x), 'int32')
+            x1 = x0 + 1
+            y0 = tf.cast(tf.floor(y), 'int32')
+            y1 = y0 + 1
+
+            x0 = tf.clip_by_value(x0, zero, max_x)
+            x1 = tf.clip_by_value(x1, zero, max_x)
+            y0 = tf.clip_by_value(y0, zero, max_y)
+            y1 = tf.clip_by_value(y1, zero, max_y)
+            dim2 = width
+            dim1 = width*height
+            base = _repeat(tf.range(num_batch)*dim1, out_height*out_width)
+            base_y0 = base + y0*dim2
+            base_y1 = base + y1*dim2
+            idx_a = base_y0 + x0
+            idx_b = base_y1 + x0
+            idx_c = base_y0 + x1
+            idx_d = base_y1 + x1
+
+            # use indices to lookup pixels in the flat image and restore
+            # channels dim
+            im_flat = tf.reshape(im, tf.stack([-1, channels]))
+            im_flat = tf.cast(im_flat, 'float32')
+            Ia = tf.gather(im_flat, idx_a)
+            Ib = tf.gather(im_flat, idx_b)
+            Ic = tf.gather(im_flat, idx_c)
+            Id = tf.gather(im_flat, idx_d)
+
+            # and finally calculate interpolated values
+            x0_f = tf.cast(x0, 'float32')
+            x1_f = tf.cast(x1, 'float32')
+            y0_f = tf.cast(y0, 'float32')
+            y1_f = tf.cast(y1, 'float32')
+            wa = tf.expand_dims(((x1_f-x) * (y1_f-y)), 1)
+            wb = tf.expand_dims(((x1_f-x) * (y-y0_f)), 1)
+            wc = tf.expand_dims(((x-x0_f) * (y1_f-y)), 1)
+            wd = tf.expand_dims(((x-x0_f) * (y-y0_f)), 1)
+            output = tf.add_n([wa*Ia, wb*Ib, wc*Ic, wd*Id])
+            return output
+
+    def _transform(images, d, out_size):
+        with tf.variable_scope('_transform'): 
+
+            shape = tf.shape(images)
+            num_batch = tf.shape(images)[0]
+            num_channels = images.get_shape()[3]
+            
+            out_width = out_size[1]
+            out_height = out_size[0]
+            cx = fx = fy = tf.to_float(out_width) / 2
+            cy = tf.to_float(out_height) / 2
+            x = tf.linspace(-1., 1., out_width)
+            y = tf.linspace(-1., 1., out_height)
+            x, y = tf.meshgrid(x, y)
+            x = tf.tile(tf.reshape(x, [1, -1, 1]), [num_batch,1,1])
+            y = tf.tile(tf.reshape(y, [1, -1, 1]), [num_batch,1,1])
+            a = x #(x - cx) / fx
+            b = y #(y - cy) / fy
+                
+            r2 = tf.square(a) + tf.square(b)
+
+            r = tf.sqrt(r2)
+            theta = tf.atan(r)
+            theta_d = theta*(1.0 + tf.reduce_sum(tf.reshape(d,
+                [1,1,4]) * tf.concat([tf.square(theta),
+                tf.pow(theta, 4), tf.pow(theta, 6), tf.pow(theta, 8)], axis=-1),
+                axis=-1, keepdims=True))
+                
+            if to_fisheye:
+                tdr = r / theta_d
+                xd = a * tdr
+                yd = b * tdr
+                xd = xd * (1.0 / tf.reduce_max(xd))
+                yd = yd * (1.0 / tf.reduce_max(yd))
+
+            else:
+                tdr = theta_d / r
+                xd = a * tdr
+                yd = b * tdr
+            
+            xd = tf.reshape(xd, [-1])
+            yd = tf.reshape(yd, [-1])
+            
+            input_transformed = _interpolate(
+                images, xd, yd,
+                out_size)
+            output = tf.reshape(input_transformed, 
+                    tf.stack([num_batch, out_height, out_width, num_channels]))
+            return output
+    with tf.variable_scope(name):
+        output = _transform(images, d, tf.shape(images)[1:3])
+        return output
 
 
 def display_trainable_parameters():
@@ -419,3 +549,24 @@ def colored_hook(home_dir):
 
         print(colorize("%s: %s" % (type_.__name__, value), "cyan"))
     return hook
+
+if __name__ == '__main__':
+    import cv2
+    from matplotlib import pyplot as plt
+    from time import time
+    im = cv2.imread("/home/rpng/github/calc2.0/dataset/CampusLoopDataset/live/Image001.jpg")/255.0
+    h = im.shape[0]
+    w = im.shape[1]
+    x = tf.expand_dims(tf.placeholder_with_default(im.astype(np.float32), im.shape), 0)
+    y = distort(x)
+    with tf.Session() as sess:
+        t = time()
+        p = sess.run(y)
+        print("Took", 1000*(time()-t), "ms")
+    plt.subplot(2,1,1)
+    plt.imshow(im)
+    plt.subplot(2,1,2)
+    plt.imshow(np.squeeze(p))
+    plt.show()
+
+
