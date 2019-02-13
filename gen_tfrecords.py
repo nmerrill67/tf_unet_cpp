@@ -11,7 +11,7 @@ import tensorflow as tf
 from time import time
 
 vh = 800
-vw = 2048
+vw = 1600
 
 FLAGS = tf.app.flags.FLAGS
 

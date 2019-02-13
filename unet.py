@@ -25,14 +25,14 @@ if __name__ == '__main__':
 
     tf.app.flags.DEFINE_string("model_dir", "model", "Estimator model_dir")
 
-    tf.app.flags.DEFINE_integer("steps", 10000, "Training steps")
+    tf.app.flags.DEFINE_integer("steps", 30000, "Training steps")
     tf.app.flags.DEFINE_string(
         "hparams", "",
         "A comma-separated list of `name=value` hyperparameter values. This flag "
         "is used to override hyperparameter settings when manually "
         "selecting hyperparameters.")
 
-    tf.app.flags.DEFINE_integer("batch_size", 24, "Size of mini-batch.")
+    tf.app.flags.DEFINE_integer("batch_size", 22, "Size of mini-batch.")
     tf.app.flags.DEFINE_string("input_dir", "tfrecords/", "tfrecords dir")
     tf.app.flags.DEFINE_string("image", "", "Image to predict on")
 
@@ -74,12 +74,6 @@ def create_input_fn(split, batch_size):
                 tf.float32) / 255.0, [__vh,__vw,3])
             fs['label'] = tf.reshape(tf.cast(tf.decode_raw(fs['label'], tf.uint8),
                 tf.float32), [__vh,__vw,N_CLASSES])
-            '''           
-            if __vh!=vh or __vw!=vw:
-                fs['img'] = tf.image.resize_images(fs['img'], [vh, vw])
-                fs['label'] = tf.image.resize_images(fs['label'], [vh, vw],
-                        method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
-            '''
             return fs
 
         if split=='train':
@@ -165,19 +159,30 @@ def model_fn(features, labels, mode, hparams):
     
     is_training = (mode == tf.estimator.ModeKeys.TRAIN)
     
-    if is_training:
-        im_l = tf.concat([features['img'], features['label']], axis=-1)
-        x = tf.image.random_flip_left_right(im_l)
-        x = tf.image.random_crop(x, [FLAGS.batch_size, vh, vw, 5])
-        x = util.distort(x)
-        features['img'] = x[:,:,:,:3]
-        features['label'] = x[:,:,:,3:]
-   
+    im_l = tf.concat([features['img'], features['label']], axis=-1)
+    x = tf.image.random_flip_left_right(im_l)
+    x = tf.image.random_crop(x, [FLAGS.batch_size, 2*vh, 2*vw, 5])
+    x = tf.image.resize_images(x, [vh, vw])
+    x = utils.distort(x, tf.placeholder_with_default([-0.0247903, 0.05102395,
+        -0.03482873, 0.00815826], [4]))
+    features['img'] = x[:,:,:,:3]
+    features['label'] = x[:,:,:,3:]
+
     images = features['img']
     labels = features['label']
     prob_feat, mask = unet(images, is_training)
-    loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=prob_feat,
-                    labels=labels))
+    #loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=prob_feat,
+    #                labels=labels))
+    seg = tf.nn.softmax(prob_feat)
+    label_bool = tf.cast(labels, tf.bool)
+    _0 = tf.zeros_like(labels)
+    p = tf.where(label_bool, tf.log(tf.clip_by_value(seg, 1e-6, 1.0)), _0)
+    n = tf.where(label_bool, _0, tf.log(1.0 - tf.clip_by_value(seg, 0.0, 1.0-1e-6)))
+
+    labels = tf.cast(label_bool, tf.float32)
+    loss = tf.reduce_mean(  
+         -tf.reduce_sum(labels * p + (1.0 - labels) * n,
+         axis=-1))
     
     with tf.variable_scope("stats"):
         tf.summary.scalar("loss", loss)

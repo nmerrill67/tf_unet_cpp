@@ -53,11 +53,7 @@ class UNet(object):
         return mask
 
 
-def distort(images,
-        d=tf.placeholder_with_default([-0.0247903, 0.05102395,
-            -0.03482873, 0.00815826], [4]),
-        to_fisheye=True,
-        name='distort'):
+def distort(images, d, to_fisheye=True, name='distort'):
     def _repeat(x, n_repeats):
         with tf.variable_scope('_repeat'):
             rep = tf.transpose(
