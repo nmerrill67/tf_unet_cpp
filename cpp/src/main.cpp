@@ -17,6 +17,7 @@ int main(int argc, char* argv[])
     printf("Initialized in %f ms\n", 1000 * (double)(clock()-t0) / CLOCKS_PER_SEC);
 
     cv::Mat mask, im;
+    cv::namedWindow("display window", cv::WINDOW_AUTOSIZE);
 
     for (int i = 1; i < argc; i++)
     {
@@ -35,16 +36,14 @@ int main(int argc, char* argv[])
         cv::Rect bbox = unet.run(im, mask);
         printf("Inference took %f ms\n", 1000 * (double)(clock()-t0) / CLOCKS_PER_SEC);
         
-        cv::namedWindow("Display window", cv::WINDOW_AUTOSIZE );
-
         cv::Mat im2;
         cv::resize(im, im, cv::Size(320, 240));
         cv::rectangle(im, bbox, 0, 2);
         cv::cvtColor(im, im, cv::COLOR_BGR2GRAY);
         cv::hconcat(im, 255 * mask, im2);
-        cv::imshow("Display window", im2);              
+        cv::imshow("Display window", im2);
 
-        cv::waitKey(1000);                                          
+        cv::waitKey(1000);
     }
     return 0;
 }

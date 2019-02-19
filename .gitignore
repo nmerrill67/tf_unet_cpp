@@ -11,3 +11,4 @@ frozen_graphs
 main
 add_to_bag
 *.bag
+*.o

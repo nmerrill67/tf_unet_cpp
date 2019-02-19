@@ -3,7 +3,9 @@
 #include <tensorflow/c/c_api.h>
 #include "opencv2/core.hpp"
 #include "opencv2/imgproc.hpp"
-    
+#include "opencv2/video/video.hpp"
+#include "opencv2/highgui/highgui.hpp"
+
 TF_Buffer* read_tf_buffer(const char* file);                                          
 void dealloc(void* data, size_t len, void* arg);
 void free_buffer(void* data, size_t len);

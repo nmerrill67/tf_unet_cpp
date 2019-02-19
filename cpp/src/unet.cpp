@@ -214,14 +214,40 @@ cv::Rect UNet::run(const cv::Mat& _im, cv::Mat& out)
     */
 
     out = cv::Mat(sz, CV_8UC1, ret_data_uint8);
-    // rm noise
-    cv::Mat element = cv::getStructuringElement(
-            cv::MORPH_ELLIPSE, cv::Size(5, 5));
-      
-    cv::morphologyEx(out, out, cv::MORPH_OPEN, element, 
-            cv::Point(-1,-1), 5);
 
-    return cv::boundingRect(out);
+    // cv::GaussianBlur(out, out, cv::Size(5,5), 8.0, 8.0);
+
+    // rm noise
+    cv::Mat element = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5));
+    cv::morphologyEx(out, out, cv::MORPH_OPEN, element, cv::Point(-1,-1), 5);
+
+    // >>>>> Improving the result
+    // cv::erode(out, out, cv::Mat(), cv::Point(-1, -1), 2);
+    // cv::dilate(out, out, cv::Mat(), cv::Point(-1, -1), 2);
+    // <<<<< Improving the result
+
+    // >>>>> Contours detection
+    std::vector<std::vector<cv::Point> > contours;
+    std::vector<cv::Vec4i> hierarchy;
+    // cv::findContours(out, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE);
+    cv::findContours(out, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
+    // <<<<< Contours detection
+
+    // >>>>> Filtering
+    cv::Rect bestrect;
+    double bestarea = 0;
+    for (size_t i = 0; i < contours.size(); i++) {
+        // bounding box of this contour
+        cv::Rect bBox = cv::boundingRect(contours[i]);
+        // see if this is the max one in the image
+        if (bBox.area() >= bestarea) {
+            bestrect = bBox;
+            bestarea = bBox.area();
+        }
+    }
+
+    // return cv::boundingRect(out);
+    return bestrect;
 }
 
 
