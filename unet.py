@@ -25,7 +25,7 @@ if __name__ == '__main__':
 
     tf.app.flags.DEFINE_string("model_dir", "model", "Estimator model_dir")
 
-    tf.app.flags.DEFINE_integer("steps", 30000, "Training steps")
+    tf.app.flags.DEFINE_integer("steps", 50000, "Training steps")
     tf.app.flags.DEFINE_string(
         "hparams", "",
         "A comma-separated list of `name=value` hyperparameter values. This flag "
@@ -56,7 +56,8 @@ def create_input_fn(split, batch_size):
         """input_fn for tf.estimator.Estimator."""
         
         indir = FLAGS.input_dir
-        tfrecord = 'train_data*.tfrecord' if split=='train' else 'validation_data.tfrecord'
+        #tfrecord = 'train_data*.tfrecord' if split=='train' else 'validation_data.tfrecord'
+        tfrecord = 'validation_data.tfrecord'
 
         def parser(serialized_example):
 
@@ -70,17 +71,23 @@ def create_input_fn(split, batch_size):
                 features=features_
             )
             
+            #if split=='train':
+            #    fs['img'] = tf.reshape(tf.cast(tf.decode_raw(fs['img'], tf.uint8),
+            #        tf.float32) / 255.0, [__vh,__vw,3])
+            #    fs['label'] = tf.reshape(tf.cast(tf.decode_raw(fs['label'], tf.uint8),
+            #        tf.float32), [__vh,__vw,N_CLASSES])
+            #else:
             fs['img'] = tf.reshape(tf.cast(tf.decode_raw(fs['img'], tf.uint8),
-                tf.float32) / 255.0, [__vh,__vw,3])
+                    tf.float32) / 255.0, [2*vh,2*vw,3])
             fs['label'] = tf.reshape(tf.cast(tf.decode_raw(fs['label'], tf.uint8),
-                tf.float32), [__vh,__vw,N_CLASSES])
+                    tf.float32), [2*vh,2*vw,N_CLASSES])
             return fs
 
-        if split=='train':
-            files = tf.data.Dataset.list_files(indir + tfrecord, shuffle=True,
-                    seed=np.int64(time()))
-        else:
-            files = [indir + tfrecord]
+        #if split=='train':
+        #    files = tf.data.Dataset.list_files(indir + tfrecord, shuffle=True,
+        #            seed=np.int64(time()))
+        #else:
+        files = [indir + tfrecord]
             
         dataset = tf.data.TFRecordDataset(files)
         dataset = dataset.apply(tf.data.experimental.shuffle_and_repeat(400, seed=np.int64(time())))
@@ -161,10 +168,14 @@ def model_fn(features, labels, mode, hparams):
     
     im_l = tf.concat([features['img'], features['label']], axis=-1)
     x = tf.image.random_flip_left_right(im_l)
-    x = tf.image.random_crop(x, [FLAGS.batch_size, 2*vh, 2*vw, 5])
+    '''
+    if is_training:
+        x = tf.contrib.image.rotate(x, tf.random.normal([FLAGS.batch_size]))
+        x = tf.image.random_crop(x, [FLAGS.batch_size, 2*vh, 2*vw, 5])
+        x = utils.distort(x, tf.placeholder_with_default([-0.0247903, 0.05102395,
+            -0.03482873, 0.00815826], [4]))
+    '''
     x = tf.image.resize_images(x, [vh, vw])
-    x = utils.distort(x, tf.placeholder_with_default([-0.0247903, 0.05102395,
-        -0.03482873, 0.00815826], [4]))
     features['img'] = x[:,:,:,:3]
     features['label'] = tf.cast(x[:,:,:,3:], tf.bool)
 
@@ -212,7 +223,7 @@ def _default_hparams():
     """Returns default or overridden user-specified hyperparameters."""
 
     hparams = tf.contrib.training.HParams(
-          learning_rate=1.0e-3,
+          learning_rate=1.0e-5,
     )
     if FLAGS.hparams:
         hparams = hparams.parse(FLAGS.hparams)
